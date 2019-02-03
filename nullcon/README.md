@@ -5,8 +5,8 @@ This directory contains solutions/writeups for _nullcon CTF 2019_ (02.02.2019)
 
 ## 2FUN
 
-in this task we're given an encryption algorith resembling 2DES
-
+in this task we're given an encryption algorithm resembling 2DES
+### Statement
 ```python
 sbox = [210, 213, 115, 178, 122, 4, 94, 164, 199, 230, 237, 248, 54,
         217, 156, 202, 212, 177, 132, 36, 245, 31, 163, 49, 68, 107,
@@ -68,8 +68,9 @@ We are also given known ciphertext: `16 bit plaintext` -> `467a52afa8f15cfb8f0ea
 The goal is to decrypt the flag `04b34e5af4a1f5260f6043b8b9abb4f8`
 
 
-\\
-After investigating `toofun` wee see that encryption process is basically excypting message with two 3-byte keys using `fun`. So step 1 woulbe be to learn how to decrypt message encrypted with `fun`. It can be done in quite straightforward way, just reversing all actions 1 by 1: 
+### Solution
+
+After investigating `toofun` wee see that it is encrypting message with two 3-byte keys using `fun`. So step 1 woulbe be to learn how to decrypt message encrypted with `fun`. It can be done in quite straightforward way, by executing all the same actions in reverse: 
 ```python
 
 
@@ -103,7 +104,7 @@ def defun(key, raw):
 ```
 
 
-Now we have to find out 6-byte key, used for original encryption. Bruteforcing is not an option here. However, we know, that `fun(key[:3], plaintext) == defun(key[3:], ciphertext)` (by the definion of toofun). Knowing this we can make Meet-in-the-middle attack: encrypt known plaintext with all keys, while decrypting knwon ciphertext with the same keys, hoping to find a common result, thus ubtaining the full key. 
+Now we have to find out 6-byte key, used for original encryption. Bruteforcing 2^48 keys is not an option here. However, we know, that `fun(key[:3], plaintext) == defun(key[3:], ciphertext)` (by the definion of toofun). Knowing this we can make Meet-in-the-middle attack: encrypt known plaintext with all keys, while decrypting knwon ciphertext with the all keys, hoping to find a common result, thus ubtaining the full key. 
 
 ```python
 fwd = {}
@@ -140,7 +141,7 @@ for k in tqdm(keys):
 ### Solution
 
 
-This was a fun challenge. We are given keras model, that performs some sort of classification task on given input, as authorization measure.
+This was a fun challenge. We are given keras model, that performs some sort of classification task on given input, and uses predicted probability as authorization measure.
 
 It's known, that alot of Deep Learning models suffer from [adversarial attacks](https://www.google.com). in a simpliest scenario, we can perform gradient ascent, modifying input image, to maximize chances of input missclasification. 
 
@@ -153,14 +154,14 @@ ip = np.array(ip, dtype='float32')/255
 ip = ip.reshape([1,28,28,1])
 ```
  
-we see, that input of our network is a 1-channel 28x28 "image" with 1-byte values. So let's atack it. To do this, we can use [foolbox](https://foolbox.readthedocs.io/en/latest/):
+we see, that input of our network is a 1-channel 28x28 "image" with 1-byte values. To generate adversarial example, we can use [foolbox](https://foolbox.readthedocs.io/en/latest/):
 
 ```python
 fmodel = foolbox.models.KerasModel(model, bounds=(0, 255), preprocessing=(0, 255))
 attack = foolbox.attacks.L1BasicIterativeAttack(fmodel)
 ```
 
-this specifies an attack, we're using L1 as a metric, while input data will be divided by 255, before supplementing it to our model. Now we can perform an attack on random image, trying to missclassify it in proper way: 
+we're using L1 as a metric. Input data will be divided by 255, before supplementing it to our model. Now we can perform an attack applying modifications to random image: 
 ```python
 d = np.random.rand(28,28,1) * 255
 adversarial = attack(d, 0)
@@ -271,9 +272,9 @@ if __name__ == '__main__':
 ```
 ### Solution
 
-We are given a server, that can encrypt everything, that doesn't contain word 'flag' in it. The only way to get the flag is to ask for it politely (e.g. submit properly ecrypted message `may i please have the flag`) it will return proper flag. 
+We are given a server, that can encrypt everything, that doesn't contain word 'flag' in it. The only way to get the flag is to ask for it politely (e.g. submit properly ecrypted message `may i please have the flag`), only then it will return proper flag. 
 
-We can see, that AES is used CTR mode. Essentially, that means, that AES generates a `key`, and ciphertext is just a XOR of the said `key` and plaintext. Therefore, we can easily manipulate ciphertext to modify the message: we can encrypt random message `rmsg` and then provide `encrypt(rmsg) XOR rmsg XOR "may i please have the flag"`. This would've been too easy, so we also have a `tag`, which is a function of ciphertext, and it's verified on every decription. Let's see if we can break it:
+We can see, that AES is used CTR mode. That means, that AES generates a `key`, and plaintext is just a XORer with the said `key`. Therefore, we can easily manipulate ciphertext to modify the message: we can encrypt random message `rmsg` and then provide `encrypt(rmsg) XOR rmsg XOR "may i please have the flag"`. However, this would've been too easy, so we encryption also generates a `tag`, which is a function of ciphertext, and it's verified on every decription. Let's see if we can break it:
 
 ```python
 H = AES.new(key, AES.MODE_ECB).encrypt(bytes(16))
@@ -292,9 +293,9 @@ n = 327989969870981036659934487747327553919
 Few things to note here:
 	* `c` is just a function of `nonce`
 	* GHASH is a function of `ciphertext, nonce, H`. Out of this three, only H is unknown
-	* `n` used in this function is prime. Which means we can compute inverse module n really easy
+	* `n` is prime. Which means we can compute inverse module n really easy
 
-Let's assume that we have a message `m` less than one block (16 bytes). Then it's tag is `c + (m * H) mod n`. We want to obtain H. To do this we can obtain 2 different messages with the same `nonce` , then:
+Let's assume that we have a message `m` less than one block (16 bytes). Then it's tag is `c + (m * H) mod n`. We want to obtain H. To do this we can obtain 2 different messages with the same `nonce` , and then:
 
 ```
 tag1 = c + (m1 * H) mod n
@@ -305,7 +306,7 @@ tag1-tag2 = (m1-m2) * H mod n
 H = (tag1-tag2) * modInv(m1-m2, n)
 ```
 
-Here `modInv(a, n)` is inverse module `n`. Fortunatelly, `n` us prime, therefore we can use [EGCD]{https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm} to compute inverse
+Here `modInv(a, n)` is inverse module `n`. As mentioned above, `n` us prime, therefore we can use [EGCD]{https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm} to compute inverse
 
 Next goal: obtain two short messages with same value of nonce. Fortunatelly, `nonce` has only 2 random bytes, which means we can just spam requests to encrypt random messages, until two of them have same `nonce`. Due to birthday paradox we're expected to make only about 256 requests
 ```python 
@@ -353,8 +354,9 @@ def getCollision():
 ```
 
 Now, we know H, time to retrieve the flag:
-	1. Encrypt message of the same length, like "may i please have the galf"
-	2. Retrieve value of `c` for GHASH: 
+1. Encrypt message of the same length, like "may i please have the galf"
+2. Retrieve value of `c` for GHASH: 
+	
 ```python
 		blocks = group(ciphertext)
 	    t = 0
@@ -363,13 +365,14 @@ Now, we know H, time to retrieve the flag:
 	    c = itag - t
 	    if c < 0:
 	        c += n 
-    ```
-    3. Modify the ciphertext:
+```
+3. Modify the ciphertext:
+	
 ```python
 	ciphertext = xor(ciphertext, [ord(x) for x in b"may i please have the flag\x00"])
     ciphertext = xor(ciphertext, [ord(x) for x in b"may i please have the galf\x00"])
 ```
-	4. Calculate the tag (just use same logics as in GHASH)
+4. Calculate the tag (just use same logics as in GHASH)
 
 
 
