@@ -137,7 +137,7 @@ for k in tqdm(keys):
 
  `print(defun(k1, defun(k2, rf)))`
 
-## mlauth
+## ML-Auth
 ### Solution
 
 
